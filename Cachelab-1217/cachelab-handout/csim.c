@@ -78,9 +78,11 @@ Cache initCache (long numLines, long numSets)
 
 void accessData(Cache cache, char instruction, address mem, int s, int b)
 {
-	int tagSize = strlen(mem)-s-b;
+	int tagSize = (floor (log10 (abs (mem)))) + 1-s-b;
 	address tag;
 	strncat(tag, mem, tagsize);
+
+
 }
 
 int main(int argc, int* argv)
