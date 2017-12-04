@@ -1,3 +1,7 @@
+/* Andrew Morrison
+ * armorrison
+ */
+
 #include "cachelab.h"
 #include <getopt.h>
 #include <stdlib.h>
@@ -76,15 +80,20 @@ Cache initCache (long numLines, long numSets)
 	return cache;
 }
 
+/* accesData will perform all actions on the cache
+*/
 void accessData(Cache cache, char instruction, address mem, int s, int b)
 {
+    /* Get the tag from the memory address */
 	int tagSize = (floor (log10 (abs (mem)))) + 1-s-b;
-	address tag;
+	address tag = 0;
 	strncat(tag, mem, tagsize);
 
-
+    
 }
 
+/* main method
+*/
 int main(int argc, int* argv)
 {
 	
