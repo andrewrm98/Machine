@@ -78,7 +78,7 @@ Cache initCache (int numLines, int numSets, int blockSize)
 	line.valid = 0;
 	line.tag = 0;
 	line.age = 0;
-    line.block = malloc(blockSize) // dynamically allocate memory to the block
+    line.block = malloc(blockSize); // dynamically allocate memory to the block
 	
 	cache.sets = (Set*) malloc (sizeof(Set) * numSets); // dynamically allocate memory to the cache
 
@@ -112,17 +112,17 @@ Cache initCache (int numLines, int numSets, int blockSize)
 
 /* detects if the line is empty
 */
-static bool detectEmptyLine(Cache cache, struct CacheInfo info)
+static int detectEmptyLine(Cache cache, struct CacheInfo info)
 {
-
+    return 0;
 } 
 
 /* detect if an eviction is necessary
 */
-static bool detectEvictLine(Cache cache, struct CacheInfo info)
+static int detectEvictLine(Cache cache, struct CacheInfo info)
 {
-
-}
+    return 0;
+}   
 
 /* accesData will perform all actions on the cache
 */
@@ -135,7 +135,7 @@ static void accessData(Cache cache, char instruction, address mem, struct CacheI
     unsigned long long setIndex = temp >> (tagSize + parts.b);
 
     /* go through each line in the set*/
-    for (int i =0; i<E; i++)
+    for (int i =0; i<parts.E; i++)
     {
         /* if the tags are equal and the valid tag is not zero then it is a hit */
         if( (cache.sets[setIndex].lines[i].tag == inputTag) && cache.sets[setIndex].lines[i].valid != 0)
