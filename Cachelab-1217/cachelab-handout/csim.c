@@ -13,7 +13,7 @@ typedef unsigned long long int address;
 
 /* holds the info for the cache 
 */
-struct cacheInfo
+struct CacheInfo
 {
     int s;
     int b;
@@ -32,6 +32,7 @@ struct Line
 	int valid;
 	address tag;
 	int age;
+    char* block;
 };
 
 /* Sets are parts of a Cache
@@ -52,9 +53,23 @@ typedef struct Line Line;
 typedef struct Set Set;
 typedef struct Cache Cache;
 
+/* exponent function
+*/
+int MyPow(int a,int b)
+{
+      if(b<0)      
+        return (1.0/a)*MyPow(a,abs(b)-1);
+      else if(b==0)
+        return 1;
+      else if(b==1)
+        return a;
+      else
+        return a*MyPow(a,b-1);
+}
+
 /* Initializer for the cache
 */
-Cache initCache (long numLines, long numSets)
+Cache initCache (int numLines, int numSets, int blockSize)
 {
 	// Necessary local variables, edit cache and return it
 	Cache cache;
@@ -63,6 +78,7 @@ Cache initCache (long numLines, long numSets)
 	line.valid = 0;
 	line.tag = 0;
 	line.age = 0;
+    line.block = malloc(blockSize) // dynamically allocate memory to the block
 	
 	cache.sets = (Set*) malloc (sizeof(Set) * numSets); // dynamically allocate memory to the cache
 
@@ -83,28 +99,52 @@ Cache initCache (long numLines, long numSets)
 	}
 
 	/* Prints out the cache for referencial purposes
-	*/
+	
 	for(int i = 0; i<numSets; i++)
 	{
 		for(int j=0; j<numLines; j++)
 		{
 			printf("valid: %d, age: %d\n", cache.sets[i].lines[j].valid, cache.sets[i].lines[j].age);
 		}
-	}
+	} */
 	return cache;
+}
+
+/* detects if the line is empty
+*/
+static bool detectEmptyLine(Cache cache, struct CacheInfo info)
+{
+
+} 
+
+/* detect if an eviction is necessary
+*/
+static bool detectEvictLine(Cache cache, struct CacheInfo info)
+{
+
 }
 
 /* accesData will perform all actions on the cache
 */
-static void accessData(Cache cache, char instruction, address mem, struct cacheInfo parts)
+static void accessData(Cache cache, char instruction, address mem, struct CacheInfo parts)
 {
-    /* Get the tag from the memory address */
+    /* Get the tag and setIndex from the memory address */
 	int tagSize = 64-parts.s-parts.b;
 	address inputTag = mem >> (parts.s + parts.b);
     unsigned long long temp = mem << (tagSize);
-    unsigned long long indexOfSet = temp >> (tagSize + parts.b);
+    unsigned long long setIndex = temp >> (tagSize + parts.b);
 
-    
+    /* go through each line in the set*/
+    for (int i =0; i<E; i++)
+    {
+        /* if the tags are equal and the valid tag is not zero then it is a hit */
+        if( (cache.sets[setIndex].lines[i].tag == inputTag) && cache.sets[setIndex].lines[i].valid != 0)
+        {
+            /* increment the age for eviction function */
+            cache.sets[setIndex].lines[i].age ++;
+            parts.hits ++;
+        }
+    }
     
 }
 
@@ -120,7 +160,7 @@ int main(int argc, char** argv)
     return 0;
     char c;
 
-    struct cacheInfo parts;
+    struct CacheInfo parts;
     char* trace;
 
     if(argc > 0)
@@ -131,17 +171,19 @@ int main(int argc, char** argv)
     		{
     			case 's':
     				parts.s = atoi(optarg);
+                    parts.S = MyPow(2, parts.s);
     			case 'E':
     				parts.E = atoi(optarg);
     			case 'b':
     				parts.b = atoi(optarg);
+                    parts.B = MyPow(2, parts.b);
     			case 't':
     				trace = optarg;
     		}
     	}
     }
 
-    Cache myCache = initCache(parts.E, parts.s);
+    Cache myCache = initCache(parts.E, parts.S, parts.B);
 
     char next;
     address mem;
