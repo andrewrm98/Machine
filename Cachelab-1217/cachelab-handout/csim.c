@@ -51,6 +51,7 @@ struct Cache
 typedef struct Line Line;
 typedef struct Set Set;
 typedef struct Cache Cache;
+typedef struct CacheInfo CacheInfo;
 
 /* exponent function
 */
@@ -68,7 +69,7 @@ static int MyPow(int a,int b)
 
 /* Initializer for the cache
 */
-Cache initCache (int numLines, int numSets, int blockSize)
+Cache initCache (CacheInfo info)
 {
 	// Necessary local variables, edit cache and return it
 	Cache cache;
@@ -78,17 +79,17 @@ Cache initCache (int numLines, int numSets, int blockSize)
 	line.tag = 0;
 	line.age = 0;
 	
-	cache.sets = (Set*) malloc (sizeof(Set) * numSets); // dynamically allocate memory to the cache
+	cache.sets = (Set*) malloc (sizeof(Set) * info.S); // dynamically allocate memory to the cache
 
 	/* Dynamically allocate memory for each Set
 	*/
-	for(int i=0; i<numSets; i++)
+	for(int i=0; i<info.S; i++)
 	{
-		set.lines = (Line*) malloc (sizeof(Line) * numLines); // dynamically allocate memory to the Lines
+		set.lines = (Line*) malloc (sizeof(Line) * info.E); // dynamically allocate memory to the Lines
 		
 		/* set all lines to default values
 		*/
-		for(int j=0; j<numLines; j++)
+		for(int j=0; j<info.E; j++)
 		{
 			set.lines[j] = line; // fill the set with default lines
 		}
@@ -110,21 +111,51 @@ Cache initCache (int numLines, int numSets, int blockSize)
 
 /* detects if the line is empty
 */
-static int detectEmptyLine(Cache cache, struct CacheInfo info)
+static int detectEmptyLine(Set set, CacheInfo info)
 {
-    return 0;
+    int index = -1;
+
+    for (int i = 0; i<info.E; i++)
+    {
+        if (set.lines[i].valid == 0)
+        {
+            index = i;
+            break;
+        }
+    }
+
+    return index;
 } 
 
 /* detect if an eviction is necessary
 */
-static int detectEvictLine(Cache cache, int lru, int mru)
+static int detectEvictLine(Set set, CacheInfo info, int lru, int mru)
 {
-    return 0;
+    int index = -1;
+    int least = 0xFFFFFFFF;
+    int most = -1;
+
+    for (int i = 0; i < parts>E; parts++)
+    {
+        if(set.lines[i].age < least)
+        {
+            least = set.lines[i].age;
+            index = i;
+        }
+
+        if(set.lines[i].age > most)
+        {
+            most = set.lines[i].age;
+        }
+    }
+    lru = least;
+    mru = most;
+    return index;
 }   
 
 /* accesData will perform all actions on the cache
 */
-static struct CacheInfo accessData(Cache cache, char instruction, address mem, struct CacheInfo parts)
+static CacheInfo accessData(Cache cache, char instruction, address mem, CacheInfo parts)
 {
     /* Get the tag and setIndex from the memory address */
 	int tagSize = 64-parts.s-parts.b;
@@ -154,12 +185,12 @@ static struct CacheInfo accessData(Cache cache, char instruction, address mem, s
     {
         /* increment the misses */
         parts.misses ++;
-        int index = detectEmptyLine(cache, parts);
+        int index = detectEmptyLine(cache.sets[setIndex], parts);
         if(index != -1)
         {
             cache.sets[setIndex].lines[index].valid = 1;
             cache.sets[setIndex].lines[index].tag = inputTag;
-            cache.sets[setIndex].lines[index].age ++;
+            //cache.sets[setIndex].lines[index].age ++;
         }
     /************************ CHECK FOR CACHE EVICTION ************************/
         else
@@ -167,7 +198,7 @@ static struct CacheInfo accessData(Cache cache, char instruction, address mem, s
             int lru = 0;
             int mru = 0;
 
-            int evictIndex = detectEvictLine(cache, lru, mru);
+            int evictIndex = detectEvictLine(cache.sets[setIndex], parts, lru, mru);
 
             cache.sets[setIndex].lines[evictIndex].valid = 1;
             cache.sets[setIndex].lines[evictIndex].tag = inputTag;
@@ -189,7 +220,7 @@ int main(int argc, char** argv)
     return 0;
     char c;
 
-    struct CacheInfo parts;
+    CacheInfo parts;
     char* trace;
 
     if(argc > 0)
@@ -212,7 +243,7 @@ int main(int argc, char** argv)
     	}
     }
 
-    Cache myCache = initCache(parts.E, parts.S, parts.B);
+    Cache myCache = initCache(parts);
 
     char next;
     address mem;
