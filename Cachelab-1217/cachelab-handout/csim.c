@@ -9,7 +9,7 @@
 
 #include <stdio.h>
 
-typedef unsigned long address;
+typedef unsigned long long int address;
 
 /* holds the info for the cache 
 */
@@ -96,13 +96,13 @@ Cache initCache (long numLines, long numSets)
 
 /* accesData will perform all actions on the cache
 */
-void accessData(Cache cache, char instruction, address mem, struct cacheInfo parts)
+static void accessData(Cache cache, char instruction, address mem, struct cacheInfo parts)
 {
     /* Get the tag from the memory address */
-	int tagSize = 64-s-b;
+	int tagSize = 64-parts.s-parts.b;
 	address inputTag = mem >> (parts.s + parts.b);
-    unsigned long long temp = address << (tagSize);
-    unsigned long long indexOfSet = temp >> (tagSize + exampleParameter.b);
+    unsigned long long temp = mem << (tagSize);
+    unsigned long long indexOfSet = temp >> (tagSize + parts.b);
 
     
     
@@ -110,7 +110,7 @@ void accessData(Cache cache, char instruction, address mem, struct cacheInfo par
 
 /* main method
 */
-int main(int argc, int* argv)
+int main(int argc, char** argv)
 {
 	
 	if (argc > 4)
@@ -125,7 +125,7 @@ int main(int argc, int* argv)
 
     if(argc > 0)
     {
-    	while(c = getopt(argc, argv, "s:E:b:t:") != -1)
+    	while( (c = getopt(argc, argv, "s:E:b:t:") != -1) )
     	{
     		switch (c)
     		{
@@ -149,15 +149,14 @@ int main(int argc, int* argv)
 
     if(trace != NULL)
     {
-    	while(fscanf(trace, "%c, %x, %d", next, mem, size) = 3)
+    	while( (scanf(trace, "%c, %llx, %d", &next, &mem, &size) ) == 3)
     	{
-    		next = trace[i];
     		switch (next)
     		{
     			case 'I':
     				break;
     			case 'L':
-    				accesData(myCache, next, mem, parts);
+    				accessData(myCache, next, mem, parts);
     				break;
     			case 'S':
     				accessData(myCache, next, mem, parts);
