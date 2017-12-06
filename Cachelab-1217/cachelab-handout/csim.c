@@ -82,14 +82,12 @@ Cache initCache (long numLines, long numSets)
 
 /* accesData will perform all actions on the cache
 */
-void accessData(Cache cache, char instruction, address mem, int s, int b)
+void accessData(Cache cache, char instruction, address mem, int s, int b, int E)
 {
     /* Get the tag from the memory address */
-	int tagSize = (floor (log10 (abs (mem)))) + 1-s-b;
-	address tag = 0;
-	strncat(tag, mem, tagsize);
+	int tagSize = 64-s-b;
+	
 
-    
 }
 
 /* main method
@@ -143,13 +141,13 @@ int main(int argc, int* argv)
     			case 'I':
     				break;
     			case 'L':
-    				accesData(myCache, next, mem, s, b);
+    				accesData(myCache, next, mem, s, b, E);
     				break;
     			case 'S':
-    				accessData(myCache, next, mem, s, b);
+    				accessData(myCache, next, mem, s, b, E);
     				break;
     			case 'M':
-    				accessData(myCache, next, mem, s, b);
+    				accessData(myCache, next, mem, s, b, E);
     				break;
     		}
     	}
