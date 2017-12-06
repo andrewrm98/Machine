@@ -11,6 +11,20 @@
 
 typedef unsigned long address;
 
+/* holds the info for the cache 
+*/
+struct cacheInfo
+{
+    int s;
+    int b;
+    int E;
+    int S;
+    int B;
+    int hits;
+    int misses;
+    int evictions;
+};
+
 /* Lines are part of sets
 */
 struct Line
@@ -82,12 +96,16 @@ Cache initCache (long numLines, long numSets)
 
 /* accesData will perform all actions on the cache
 */
-void accessData(Cache cache, char instruction, address mem, int s, int b, int E)
+void accessData(Cache cache, char instruction, address mem, struct cacheInfo parts)
 {
     /* Get the tag from the memory address */
 	int tagSize = 64-s-b;
-	
+	address inputTag = mem >> (parts.s + parts.b);
+    unsigned long long temp = address << (tagSize);
+    unsigned long long indexOfSet = temp >> (tagSize + exampleParameter.b);
 
+    
+    
 }
 
 /* main method
@@ -102,9 +120,7 @@ int main(int argc, int* argv)
     return 0;
     char c;
 
-    int s;
-    int E;
-    int b;
+    struct cacheInfo parts;
     char* trace;
 
     if(argc > 0)
@@ -114,18 +130,18 @@ int main(int argc, int* argv)
     		switch (c)
     		{
     			case 's':
-    				s = atoi(optarg);
+    				parts.s = atoi(optarg);
     			case 'E':
-    				E = atoi(optarg);
+    				parts.E = atoi(optarg);
     			case 'b':
-    				b = atoi(optarg);
+    				parts.b = atoi(optarg);
     			case 't':
-    				t = optarg;
+    				trace = optarg;
     		}
     	}
     }
 
-    Cache myCache = initCache(E, S);
+    Cache myCache = initCache(parts.E, parts.s);
 
     char next;
     address mem;
@@ -141,13 +157,13 @@ int main(int argc, int* argv)
     			case 'I':
     				break;
     			case 'L':
-    				accesData(myCache, next, mem, s, b, E);
+    				accesData(myCache, next, mem, parts);
     				break;
     			case 'S':
-    				accessData(myCache, next, mem, s, b, E);
+    				accessData(myCache, next, mem, parts);
     				break;
     			case 'M':
-    				accessData(myCache, next, mem, s, b, E);
+    				accessData(myCache, next, mem, parts);
     				break;
     		}
     	}
