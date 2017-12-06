@@ -32,7 +32,6 @@ struct Line
 	int valid;
 	address tag;
 	int age;
-    char* block;
 };
 
 /* Sets are parts of a Cache
@@ -55,7 +54,7 @@ typedef struct Cache Cache;
 
 /* exponent function
 */
-int MyPow(int a,int b)
+static int MyPow(int a,int b)
 {
       if(b<0)      
         return (1.0/a)*MyPow(a,abs(b)-1);
@@ -78,7 +77,6 @@ Cache initCache (int numLines, int numSets, int blockSize)
 	line.valid = 0;
 	line.tag = 0;
 	line.age = 0;
-    line.block = malloc(blockSize); // dynamically allocate memory to the block
 	
 	cache.sets = (Set*) malloc (sizeof(Set) * numSets); // dynamically allocate memory to the cache
 
@@ -119,20 +117,24 @@ static int detectEmptyLine(Cache cache, struct CacheInfo info)
 
 /* detect if an eviction is necessary
 */
-static int detectEvictLine(Cache cache, struct CacheInfo info)
+static int detectEvictLine(Cache cache, int lru, int mru)
 {
     return 0;
 }   
 
 /* accesData will perform all actions on the cache
 */
-static void accessData(Cache cache, char instruction, address mem, struct CacheInfo parts)
+static struct CacheInfo accessData(Cache cache, char instruction, address mem, struct CacheInfo parts)
 {
     /* Get the tag and setIndex from the memory address */
 	int tagSize = 64-parts.s-parts.b;
 	address inputTag = mem >> (parts.s + parts.b);
     unsigned long long temp = mem << (tagSize);
     unsigned long long setIndex = temp >> (tagSize + parts.b);
+
+    int lastHit = parts.hits;
+
+    /************************ CHECK FOR CACHE HIT **************************/
 
     /* go through each line in the set*/
     for (int i =0; i<parts.E; i++)
@@ -145,7 +147,36 @@ static void accessData(Cache cache, char instruction, address mem, struct CacheI
             parts.hits ++;
         }
     }
-    
+
+    /************************ CHECK FOR CACHE MISS ************************/
+    /* check if the hits have changed, if so, then we have missed */
+    if (parts.hits == lastHit)
+    {
+        /* increment the misses */
+        parts.misses ++;
+        if( (index = detectEmptyLine(cache, parts) != -1 ) )
+        {
+            cache.sets[setIndex].lines[index].valid = 1;
+            cache.sets[setIndex].lines[index].tag = inputTag;
+            cache.sets[setIndex].lines[index].age ++;
+        }
+    /************************ CHECK FOR CACHE EVICTION ************************/
+        else
+        {
+            int lru = 0;
+            int mru = 0;
+
+            evictIndex = detectEvictLine(cache, lru, mru);
+
+            cache.sets[setIndex].lines[evictIndex].valid = 1;
+            cache.sets[setIndex].lines[evictIndex].tag = inputTag;
+            cache.sets[setIndex].lines[evictIndex].valid = mru ++;
+        }
+    }
+    else
+    {
+        return parts;
+    }
 }
 
 /* main method
