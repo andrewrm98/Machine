@@ -154,7 +154,8 @@ static struct CacheInfo accessData(Cache cache, char instruction, address mem, s
     {
         /* increment the misses */
         parts.misses ++;
-        if( (index = detectEmptyLine(cache, parts) != -1 ) )
+        int index = detectEmptyLine(cache, parts);
+        if(index != -1)
         {
             cache.sets[setIndex].lines[index].valid = 1;
             cache.sets[setIndex].lines[index].tag = inputTag;
@@ -166,17 +167,14 @@ static struct CacheInfo accessData(Cache cache, char instruction, address mem, s
             int lru = 0;
             int mru = 0;
 
-            evictIndex = detectEvictLine(cache, lru, mru);
+            int evictIndex = detectEvictLine(cache, lru, mru);
 
             cache.sets[setIndex].lines[evictIndex].valid = 1;
             cache.sets[setIndex].lines[evictIndex].tag = inputTag;
             cache.sets[setIndex].lines[evictIndex].valid = mru ++;
         }
     }
-    else
-    {
-        return parts;
-    }
+    return parts;
 }
 
 /* main method
