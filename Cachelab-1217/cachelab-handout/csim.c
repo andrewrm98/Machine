@@ -1,13 +1,16 @@
 /* Andrew Morrison
- * armorrison
+ *  armorrison
+    Peter Christakos
+    pechristakos
  */
 
 #include "cachelab.h"
 #include <getopt.h>
 #include <stdlib.h>
 #include <unistd.h>
-
 #include <stdio.h>
+#include <strings.h>
+#include <math.h>
 
 typedef unsigned long long int address;
 
@@ -29,23 +32,23 @@ struct CacheInfo
 */
 struct Line
 {
-	int valid;
-	address tag;
-	int age;
+    int valid;
+    address tag;
+    int age;
 };
 
 /* Sets are parts of a Cache
 */
 struct Set
 {
-	struct Line* lines;
+    struct Line* lines;
 };
 
 /* The full Cache
 */
 struct Cache
 {
-	struct Set* sets;
+    struct Set* sets;
 };
 
 typedef struct Line Line;
@@ -53,222 +56,261 @@ typedef struct Set Set;
 typedef struct Cache Cache;
 typedef struct CacheInfo CacheInfo;
 
-/* exponent function
-*/
-static int MyPow(int a,int b)
-{
-      if(b<0)      
-        return (1.0/a)*MyPow(a,abs(b)-1);
-      else if(b==0)
-        return 1;
-      else if(b==1)
-        return a;
-      else
-        return a*MyPow(a,b-1);
-}
 
-/* Initializer for the cache
-*/
-Cache initCache (CacheInfo info)
-{
-	// Necessary local variables, edit cache and return it
-	Cache cache;
-	Set set;
-	Line line;
-	line.valid = 0;
-	line.tag = 0;
-	line.age = 0;
-	
-	cache.sets = (Set*) malloc (sizeof(Set) * info.S); // dynamically allocate memory to the cache
+Cache initCache(int linesize, long long setsize, long long blocksize) 
+{   // function creates the cache out of amounts of lines, sets, blocks 
 
-	/* Dynamically allocate memory for each Set
-	*/
-	for(int i=0; i<info.S; i++)
-	{
-		set.lines = (Line*) malloc (sizeof(Line) * info.E); // dynamically allocate memory to the Lines
-		
-		/* set all lines to default values
-		*/
-		for(int j=0; j<info.E; j++)
-		{
-			set.lines[j] = line; // fill the set with default lines
-		}
-
-		cache.sets[i] = set; // fill the cache with default sets
-	}
-
-	/* Prints out the cache for referencial purposes
-	
-	for(int i = 0; i<numSets; i++)
-	{
-		for(int j=0; j<numLines; j++)
-		{
-			printf("valid: %d, age: %d\n", cache.sets[i].lines[j].valid, cache.sets[i].lines[j].age);
-		}
-	} */
-	return cache;
-}
-
-/* detects if the line is empty
-*/
-static int detectEmptyLine(Set set, CacheInfo info)
-{
-    int index = -1;
-
-    for (int i = 0; i<info.E; i++)
-    {
-        if (set.lines[i].valid == 0)
+    Cache cache; //create the cache for the function   
+    Set set; // create set for cache
+    Line line; // create lines for set
+    cache.sets = (struct Set*) malloc(sizeof(struct Set) * setsize); //allocate memory for the cache set
+    for (int i = 0; i < setsize; i++) // loop through each set
+    {     
+        set.lines =  (struct Line *) malloc(sizeof(struct Line) * linesize); // allocate memory for each individual line    
+        cache.sets[i] = set; 
+        for (int j = 0; j < linesize; j++) // loop through the line in each set and clear it
         {
-            index = i;
-            break;
-        }
-    }
-
-    return index;
-} 
+            line.age = 0;
+            line.valid = 0;
+            line.tag = 0; 
+            set.lines[j] = line; 
+        }  
+    } 
+    return cache;
+}
 
 /* detect if an eviction is necessary
 */
-static int detectEvictLine(Set set, CacheInfo info, int lru, int mru)
+int findEvictionLine(Set set, CacheInfo parts, int * usedLines)
 {
-    int index = -1;
-    int least = 0xFFFFFFFF;
-    int most = -1;
+    int index = 0;
+    int least = set.lines[0].age; 
+    int most = set.lines[0].age;
 
-    for (int i = 0; i < parts>E; parts++)
+    for (int i = 0; i < parts.E; i++)
     {
         if(set.lines[i].age < least)
         {
             least = set.lines[i].age;
             index = i;
         }
-
-        if(set.lines[i].age > most)
-        {
-            most = set.lines[i].age;
+        if(set.lines[i].age > most) 
+        { 
+        most = set.lines[i].age;
         }
     }
-    lru = least;
-    mru = most;
+    usedLines[0] = most;
     return index;
 }   
 
+int findEmptyLine(Set set, CacheInfo info)
+// see if line in cache is empty, -1 means no and proper location means yes
+{
+    int index = -1; // default value meaning no location
+    for (int i = 0; i<info.E; i++)
+    {
+        if (set.lines[i].valid == 0)
+        {
+            index = i;
+            return index;
+        }
+    }
+    return index; // return -1 if no line available
+} 
+
+
+
 /* accesData will perform all actions on the cache
 */
-static CacheInfo accessData(Cache cache, char instruction, address mem, CacheInfo parts)
-{
-    /* Get the tag and setIndex from the memory address */
-	int tagSize = 64-parts.s-parts.b;
-	address inputTag = mem >> (parts.s + parts.b);
-    unsigned long long temp = mem << (tagSize);
-    unsigned long long setIndex = temp >> (tagSize + parts.b);
+CacheInfo accessData(Cache cache, CacheInfo parts, address mem) {
 
-    int lastHit = parts.hits;
+        int cachefull = 1;  // variable that sais cache is full, will change otherwise
+        int previousHit = parts.hits; // measure previousHit before looping
+      address raw_tag = mem >> (parts.s + parts.b);
+        int tag_size = (64 - (parts.s + parts.b));
+        unsigned long long temp = mem << (tag_size);
+        unsigned long long indexOfSet = temp >> (tag_size + parts.b);
+        Set set = cache.sets[indexOfSet];
+        int *lines_occupied = (int*) malloc(sizeof(int) * 2); //malloc array of occupied lines
+        int eviction_index = findEvictionLine(set, parts, lines_occupied); //set variable has index for function
 
-    /************************ CHECK FOR CACHE HIT **************************/
-
-    /* go through each line in the set*/
-    for (int i =0; i<parts.E; i++)
-    {
-        /* if the tags are equal and the valid tag is not zero then it is a hit */
-        if( (cache.sets[setIndex].lines[i].tag == inputTag) && cache.sets[setIndex].lines[i].valid != 0)
+        for (int i = 0; i < parts.E; i++)  // loop through checking each line to see if hit
         {
-            /* increment the age for eviction function */
-            cache.sets[setIndex].lines[i].age ++;
-            parts.hits ++;
+            if ((set.lines[i].valid != 0) && (set.lines[i].tag == raw_tag)) 
+            {
+                parts.hits++;  
+                set.lines[i].age ++; // if hits, incrememnt hits and age, the older the less recently accessed
+            }
+            else if ((cachefull) && !(set.lines[i].valid)) { 
+                cachefull = 0;  // set cachefull back to zero if there is room
+            } 
         }
-    }
-
-    /************************ CHECK FOR CACHE MISS ************************/
-    /* check if the hits have changed, if so, then we have missed */
-    if (parts.hits == lastHit)
-    {
-        /* increment the misses */
-        parts.misses ++;
-        int index = detectEmptyLine(cache.sets[setIndex], parts);
-        if(index != -1)
+        if (previousHit == parts.hits) {   // if we didn't find the hit, then it counts as a miss
+            parts.misses++;
+        } 
+        else 
         {
-            cache.sets[setIndex].lines[index].valid = 1;
-            cache.sets[setIndex].lines[index].tag = inputTag;
-            //cache.sets[setIndex].lines[index].age ++;
+            return parts;
         }
-    /************************ CHECK FOR CACHE EVICTION ************************/
-        else
+        if (cachefull)     
         {
-            int lru = 0;
-            int mru = 0;
-
-            int evictIndex = detectEvictLine(cache.sets[setIndex], parts, lru, mru);
-
-            cache.sets[setIndex].lines[evictIndex].valid = 1;
-            cache.sets[setIndex].lines[evictIndex].tag = inputTag;
-            cache.sets[setIndex].lines[evictIndex].valid = mru ++;
+            parts.evictions++;
+            set.lines[eviction_index].tag = raw_tag;
+            set.lines[eviction_index].age = lines_occupied[0] + 1;
         }
-    }
+        else        // run find empty line function
+            {
+            int empty_line = findEmptyLine(set, parts);
+            set.lines[empty_line].tag = raw_tag;
+            set.lines[empty_line].valid = 1;
+            set.lines[empty_line].age = lines_occupied[0] + 1;
+        }                       
     return parts;
 }
 
 /* main method
 */
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-	
-	if (argc > 4)
-		return 0;
-
-    printSummary(0, 0, 0);
-    return 0;
-    char c;
-
-    CacheInfo parts;
-    char* trace;
-
-    if(argc > 0)
-    {
-    	while( (c = getopt(argc, argv, "s:E:b:t:") != -1) )
-    	{
-    		switch (c)
-    		{
-    			case 's':
-    				parts.s = atoi(optarg);
-                    parts.S = MyPow(2, parts.s);
-    			case 'E':
-    				parts.E = atoi(optarg);
-    			case 'b':
-    				parts.b = atoi(optarg);
-                    parts.B = MyPow(2, parts.b);
-    			case 't':
-    				trace = optarg;
-    		}
-    	}
-    }
-
-    Cache myCache = initCache(parts);
-
-    char next;
+    
+    Cache myCache;
+    CacheInfo exampleParameter;
+    bzero(&exampleParameter, sizeof(exampleParameter));  // read the report for this function's purpose
+    long long numberOfSets;
+    long long sizeOfBlock;  
+    FILE *openTrace;
+    char instructionInTraceFile;
     address mem;
     int size;
-
-    if(trace != NULL)
+    char *trace_file;
+    char c;
+    /* this part takes in argument. More on how do I do this-> read report file */
+    while( (c=getopt(argc,argv,"s:E:b:t:vh")) != -1)
     {
-    	while( (scanf(trace, "%c, %llx, %d", &next, &mem, &size) ) == 3)
-    	{
-    		switch (next)
-    		{
-    			case 'I':
-    				break;
-    			case 'L':
-    				accessData(myCache, next, mem, parts);
-    				break;
-    			case 'S':
-    				accessData(myCache, next, mem, parts);
-    				break;
-    			case 'M':
-    				accessData(myCache, next, mem, parts);
-    				break;
-    		}
-    	}
+        switch(c)
+        {
+        case 's':
+            exampleParameter.s = atoi(optarg);
+            break;
+        case 'E':
+            exampleParameter.E = atoi(optarg);
+            break;
+        case 'b':
+            exampleParameter.b = atoi(optarg);
+            break;
+        case 't':
+            trace_file = optarg;
+            break;
+        case 'h':
+            exit(0);
+        default:
+            exit(1);
+        }
     }
-}
+   /* end of take in arguments from command line */ 
 
+    numberOfSets = pow(2.0, exampleParameter.s);   // get Number of set by 2^s
+    sizeOfBlock = pow(2.0, exampleParameter.b);  //  get sizeOfBlock by 2^b
+    exampleParameter.hits = 0;
+    exampleParameter.misses = 0;
+    exampleParameter.evictions = 0;
+    myCache = initCache (exampleParameter.E, numberOfSets, sizeOfBlock);
+
+    /* this part read file. More on how do I do this-> read report file */
+    openTrace  = fopen(trace_file, "r");
+    if (openTrace != NULL) {
+        while (fscanf(openTrace, " %c %llx,%d", &instructionInTraceFile, &mem, &size) == 3) {
+            switch(instructionInTraceFile) {
+                case 'I':
+                    break;
+                case 'L':
+                    exampleParameter = accessData(myCache, exampleParameter, mem);
+                    break;
+                case 'S':
+                    exampleParameter = accessData(myCache, exampleParameter, mem);
+                    break;
+                case 'M':
+                    exampleParameter = accessData(myCache, exampleParameter, mem);
+                    exampleParameter = accessData(myCache, exampleParameter, mem);  
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    printSummary(exampleParameter.hits, exampleParameter.misses, exampleParameter.evictions);
+    fclose(openTrace);
+    return 0;
+}int main(int argc, char **argv)
+{
+    
+    Cache myCache;
+    CacheInfo exampleParameter;
+    bzero(&exampleParameter, sizeof(exampleParameter));  // read the report for this function's purpose
+    long long numberOfSets;
+    long long sizeOfBlock;  
+    FILE *openTrace;
+    char instructionInTraceFile;
+    address mem;
+    int size;
+    char *trace_file;
+    char c;
+    /* this part takes in argument. More on how do I do this-> read report file */
+    while( (c=getopt(argc,argv,"s:E:b:t:vh")) != -1)
+    {
+        switch(c)
+        {
+        case 's':
+            exampleParameter.s = atoi(optarg);
+            break;
+        case 'E':
+            exampleParameter.E = atoi(optarg);
+            break;
+        case 'b':
+            exampleParameter.b = atoi(optarg);
+            break;
+        case 't':
+            trace_file = optarg;
+            break;
+        case 'h':
+            exit(0);
+        default:
+            exit(1);
+        }
+    }
+   /* end of take in arguments from command line */ 
+
+    numberOfSets = pow(2.0, exampleParameter.s);   // get Number of set by 2^s
+    sizeOfBlock = pow(2.0, exampleParameter.b);  //  get sizeOfBlock by 2^b
+    exampleParameter.hits = 0;
+    exampleParameter.misses = 0;
+    exampleParameter.evictions = 0;
+    myCache = initCache (exampleParameter.E, numberOfSets, sizeOfBlock);
+
+    /* this part read file. More on how do I do this-> read report file */
+    openTrace  = fopen(trace_file, "r");
+    if (openTrace != NULL) {
+        while (fscanf(openTrace, " %c %llx,%d", &instructionInTraceFile, &mem, &size) == 3) {
+            switch(instructionInTraceFile) {
+                case 'I':
+                    break;
+                case 'L':
+                    exampleParameter = accessData(myCache, exampleParameter, mem);
+                    break;
+                case 'S':
+                    exampleParameter = accessData(myCache, exampleParameter, mem);
+                    break;
+                case 'M':
+                    exampleParameter = accessData(myCache, exampleParameter, mem);
+                    exampleParameter = accessData(myCache, exampleParameter, mem);  
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    printSummary(exampleParameter.hits, exampleParameter.misses, exampleParameter.evictions);
+    fclose(openTrace);
+    return 0;
+}
 
