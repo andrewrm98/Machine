@@ -51,14 +51,21 @@ struct Cache
     struct Set* sets;
 };
 
+/* typedef to make defining easier */
 typedef struct Line Line;
 typedef struct Set Set;
 typedef struct Cache Cache;
 typedef struct CacheInfo CacheInfo;
 
+/********************************************** END OF STRUCT CREATION *******************************************/
 
+/* initCache initializes the cache
+ * it starts by using malloc to allocate memory for the cache
+ * it then uses malloc to create a set
+ * then assigns the sets to the cache
+ */
 Cache initCache(int linesize, long long setsize, long long blocksize) 
-{   // function creates the cache out of amounts of lines, sets, blocks 
+{   
 
     Cache cache; //create the cache for the function   
     Set set; // create set for cache
@@ -68,7 +75,8 @@ Cache initCache(int linesize, long long setsize, long long blocksize)
     {     
         set.lines =  (struct Line *) malloc(sizeof(struct Line) * linesize); // allocate memory for each individual line    
         cache.sets[i] = set; 
-        for (int j = 0; j < linesize; j++) // loop through the line in each set and clear it
+        for (int j = 0; j < linesize; j++) // loop through the line in each set and set default values
+
         {
             line.age = 0;
             line.valid = 0;
@@ -76,13 +84,14 @@ Cache initCache(int linesize, long long setsize, long long blocksize)
             set.lines[j] = line; 
         }  
     } 
-    return cache;
+    return cache; // return the cache with memory allocated
 }
 
 /* detect if an eviction is necessary
 */
 int findEvictionLine(Set set, CacheInfo parts, int * usedLines)
 {
+    // Keep track of least and most to implement LRU cache without a linked list
     int index = 0;
     int least = set.lines[0].age; 
     int most = set.lines[0].age;
@@ -99,6 +108,7 @@ int findEvictionLine(Set set, CacheInfo parts, int * usedLines)
         most = set.lines[i].age;
         }
     }
+    // Save most and return index
     usedLines[0] = most;
     return index;
 }   
@@ -120,8 +130,11 @@ int findEmptyLine(Set set, CacheInfo info)
 
 
 
-/* accesData will perform all actions on the cache
-*/
+/* accesData will perform all accesses on the cache
+ * First, check if hit
+ * then, check if eviction
+ * finally, check for miss
+ */
 CacheInfo accessData(Cache cache, CacheInfo parts, address mem) {
 
         int cachefull = 1;  // variable that sais cache is full, will change otherwise
@@ -152,7 +165,7 @@ CacheInfo accessData(Cache cache, CacheInfo parts, address mem) {
         {
             return parts;
         }
-        if (cachefull)     
+        if (cachefull) // if the cache is full then an eviction is needed
         {
             parts.evictions++;
             set.lines[eviction_index].tag = raw_tag;
@@ -164,7 +177,8 @@ CacheInfo accessData(Cache cache, CacheInfo parts, address mem) {
             set.lines[empty_line].tag = raw_tag;
             set.lines[empty_line].valid = 1;
             set.lines[empty_line].age = lines_occupied[0] + 1;
-        }                       
+        }
+    // return parts to keep track of S, B, E, misses, evictions, and hits                       
     return parts;
 }
 
@@ -172,10 +186,10 @@ CacheInfo accessData(Cache cache, CacheInfo parts, address mem) {
 */
 int main(int argc, char **argv)
 {
-    
+    // create all variables
     Cache myCache;
-    CacheInfo exampleParameter;
-    bzero(&exampleParameter, sizeof(exampleParameter));  // read the report for this function's purpose
+    CacheInfo parts;
+    bzero(&parts, sizeof(parts)); 
     long long numberOfSets;
     long long sizeOfBlock;  
     FILE *openTrace;
@@ -183,20 +197,20 @@ int main(int argc, char **argv)
     address mem;
     int size;
     char *trace_file;
-    char c;
-    /* this part takes in argument. More on how do I do this-> read report file */
-    while( (c=getopt(argc,argv,"s:E:b:t:vh")) != -1)
+    char x;s
+
+    while( (x = getopt(argc, argv, "s:E:b:t:vh")) != -1)
     {
-        switch(c)
+        switch(x)
         {
         case 's':
-            exampleParameter.s = atoi(optarg);
+            parts.s = atoi(optarg);
             break;
         case 'E':
-            exampleParameter.E = atoi(optarg);
+            parts.E = atoi(optarg);
             break;
         case 'b':
-            exampleParameter.b = atoi(optarg);
+            parts.b = atoi(optarg);
             break;
         case 't':
             trace_file = optarg;
@@ -209,12 +223,12 @@ int main(int argc, char **argv)
     }
    /* end of take in arguments from command line */ 
 
-    numberOfSets = pow(2.0, exampleParameter.s);   // get Number of set by 2^s
-    sizeOfBlock = pow(2.0, exampleParameter.b);  //  get sizeOfBlock by 2^b
-    exampleParameter.hits = 0;
-    exampleParameter.misses = 0;
-    exampleParameter.evictions = 0;
-    myCache = initCache (exampleParameter.E, numberOfSets, sizeOfBlock);
+    numberOfSets = pow(2.0, parts.s);   // get Number of set by 2^s
+    sizeOfBlock = pow(2.0, parts.b);  //  get sizeOfBlock by 2^b
+    parts.hits = 0;
+    parts.misses = 0;
+    parts.evictions = 0;
+    myCache = initCache (parts.E, numberOfSets, sizeOfBlock);
 
     /* this part read file. More on how do I do this-> read report file */
     openTrace  = fopen(trace_file, "r");
@@ -224,93 +238,21 @@ int main(int argc, char **argv)
                 case 'I':
                     break;
                 case 'L':
-                    exampleParameter = accessData(myCache, exampleParameter, mem);
+                    parts = accessData(myCache, parts, mem);
                     break;
                 case 'S':
-                    exampleParameter = accessData(myCache, exampleParameter, mem);
+                    parts = accessData(myCache, parts, mem);
                     break;
                 case 'M':
-                    exampleParameter = accessData(myCache, exampleParameter, mem);
-                    exampleParameter = accessData(myCache, exampleParameter, mem);  
+                    parts = accessData(myCache, parts, mem);
+                    parts = accessData(myCache, parts, mem);  
                     break;
                 default:
                     break;
             }
         }
     }
-    printSummary(exampleParameter.hits, exampleParameter.misses, exampleParameter.evictions);
-    fclose(openTrace);
-    return 0;
-}int main(int argc, char **argv)
-{
-    
-    Cache myCache;
-    CacheInfo exampleParameter;
-    bzero(&exampleParameter, sizeof(exampleParameter));  // read the report for this function's purpose
-    long long numberOfSets;
-    long long sizeOfBlock;  
-    FILE *openTrace;
-    char instructionInTraceFile;
-    address mem;
-    int size;
-    char *trace_file;
-    char c;
-    /* this part takes in argument. More on how do I do this-> read report file */
-    while( (c=getopt(argc,argv,"s:E:b:t:vh")) != -1)
-    {
-        switch(c)
-        {
-        case 's':
-            exampleParameter.s = atoi(optarg);
-            break;
-        case 'E':
-            exampleParameter.E = atoi(optarg);
-            break;
-        case 'b':
-            exampleParameter.b = atoi(optarg);
-            break;
-        case 't':
-            trace_file = optarg;
-            break;
-        case 'h':
-            exit(0);
-        default:
-            exit(1);
-        }
-    }
-   /* end of take in arguments from command line */ 
-
-    numberOfSets = pow(2.0, exampleParameter.s);   // get Number of set by 2^s
-    sizeOfBlock = pow(2.0, exampleParameter.b);  //  get sizeOfBlock by 2^b
-    exampleParameter.hits = 0;
-    exampleParameter.misses = 0;
-    exampleParameter.evictions = 0;
-    myCache = initCache (exampleParameter.E, numberOfSets, sizeOfBlock);
-
-    /* this part read file. More on how do I do this-> read report file */
-    openTrace  = fopen(trace_file, "r");
-    if (openTrace != NULL) {
-        while (fscanf(openTrace, " %c %llx,%d", &instructionInTraceFile, &mem, &size) == 3) {
-            switch(instructionInTraceFile) {
-                case 'I':
-                    break;
-                case 'L':
-                    exampleParameter = accessData(myCache, exampleParameter, mem);
-                    break;
-                case 'S':
-                    exampleParameter = accessData(myCache, exampleParameter, mem);
-                    break;
-                case 'M':
-                    exampleParameter = accessData(myCache, exampleParameter, mem);
-                    exampleParameter = accessData(myCache, exampleParameter, mem);  
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
-    printSummary(exampleParameter.hits, exampleParameter.misses, exampleParameter.evictions);
+    printSummary(parts.hits, parts.misses, parts.evictions);
     fclose(openTrace);
     return 0;
 }
-
