@@ -22,22 +22,33 @@ int is_transpose(int M, int N, int A[N][M], int B[M][N]);
 char transpose_submit_desc[] = "Transpose submission";
 void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 {
-    int bSize1 = 16;
-    int bSize2 = 16;
 
+    /* This transpose function uses a blocked approach
+     * 2D array A will iterated through by blocks which allow it to be more efficient with respect to the cache
+     */
+
+    /* Determine block size based on size of 2D array */
+    int bSize1 = M/8;
+    int bSize2 = N/8;
+
+    /* Determine the number of blocks */
     int blocks1 = bSize1 * (N/bSize1);
     int blocks2 = bSize2 * (M/bSize2);
 
+    /* temp will hold the value for A to be put in B... not necessary */
     int temp;
 
+    /* first two loops will go through each block of A */
     for(int i = 0; i<blocks1; i+=bSize1)
     {
         for(int j = 0; j<blocks2; j+=bSize2)
         {
+            /* the inner two loops will iterate through the blocks in A and transpose the values to B */
             for(int k = i; k<i+bSize1; k++)
             {
                 for(int l = j; l<j+bSize2; l++)
                 {
+                    /* tranpose to B */
                     temp = A[k][l];
                     B[l][k] = temp;
                 }
