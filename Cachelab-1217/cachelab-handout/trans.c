@@ -35,8 +35,8 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
     int blocks1 = bSize1 * (N/bSize1);
     int blocks2 = bSize2 * (M/bSize2);
 
-    /* temp will hold the value for A to be put in B... not necessary */
     int temp;
+    int temp_col;
 
     /* first two loops will go through each block of A */
     for(int i = 0; i<blocks1; i+=bSize1)
@@ -48,9 +48,22 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
             {
                 for(int l = j; l<j+bSize2; l++)
                 {
-                    /* tranpose to B */
-                    temp = A[k][l];
-                    B[l][k] = temp;
+                    /* check if it is on a diagonal: if so store in temp variable to deal with later */
+                    if( (k==l) && (i==j) )
+                    {
+                        temp = A[k][l];
+                        temp_col = l;
+                    }
+                    /* else tranpose to B */
+                    else
+                    {
+                        B[l][k] = A[k][l];
+                    }
+                }
+                /* if a diagonal is found then add it to B here */
+                if(i==j)
+                {
+                    B[l][temp_col] = temp;
                 }
             }
         }
