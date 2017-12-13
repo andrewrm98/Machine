@@ -28,8 +28,8 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
      */
 
     /* Determine block size based on size of 2D array */
-    int bSize1 = M/8;
-    int bSize2 = N/8;
+    int bSize1 = 8;
+    int bSize2 = 8;
 
     /* Determine the number of blocks */
     int blocks1 = bSize1 * (N/bSize1);
@@ -44,9 +44,9 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
         for(int j = 0; j<blocks2; j+=bSize2)
         {
             /* the inner two loops will iterate through the blocks in A and transpose the values to B */
-            for(int k = i; k<i+bSize1; k++)
+            for(int k = i; k<i+bSize1 && k<N; k++)
             {
-                for(int l = j; l<j+bSize2; l++)
+                for(int l = j; l<j+bSize2 && l<M; l++)
                 {
                     /* check if it is on a diagonal: if so store in temp variable to deal with later */
                     if( (k==l) && (i==j) )
@@ -63,7 +63,7 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
                 /* if a diagonal is found then add it to B here */
                 if(i==j)
                 {
-                    B[l][temp_col] = temp;
+                    B[temp_col][k] = temp;
                 }
             }
         }
