@@ -1,4 +1,7 @@
+// Peter Christakos pechristakos
+// Andrew Morrison armorrison
 /* 
+
  * trans.c - Matrix transpose B = A^T
  *
  * Each transpose function must have a prototype of the form:
@@ -23,45 +26,104 @@ char transpose_submit_desc[] = "Transpose submission";
 void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 {
 
-    /* This transpose function uses a blocked approach
+     /* This transpose function uses a blocked approach
      * 2D array A will iterated through by blocks which allow it to be more efficient with respect to the cache
      */
 
-    /* Determine block size based on size of 2D array */
-    int bSize1 = 8;
-    int bSize2 = 8;
-
-    /* Determine the number of blocks */
-    int blocks1 = bSize1 * (N/bSize1);
-    int blocks2 = bSize2 * (M/bSize2);
-
+    /* temp variables to hold diagonals */
     int temp;
     int temp_col;
 
-    /* first two loops will go through each block of A */
-    for(int i = 0; i<blocks1; i+=bSize1)
+    if (N==32) /* For 32x32 matrix, we have found a block size of 8 is most efficient */
     {
-        for(int j = 0; j<blocks2; j+=bSize2)
+        /* transverse through block by block with the outer two loops */
+        for(int rBlock = 0; rBlock<N; rBlock+=8)
         {
-            /* the inner two loops will iterate through the blocks in A and transpose the values to B */
-            for(int k = i; k<i+bSize1 && k<M; k++)
+            for(int cBlock = 0; cBlock<M; cBlock+=8)
             {
-                for(int l = j; l<j+bSize2 && l<N; l++)
+                /* trasnverse through each individual block with inner two loops */
+                for(int r = rBlock; r<rBlock+8; r++)
                 {
-                    /* check if it is on a diagonal: if so store in temp variable to deal with later */
-                    if(k==l)
+                    for(int c = cBlock; c<cBlock+8; c++)
                     {
-                        temp = A[k][l];
-                        temp_col = l;
+                        /* if it is not on a diagonal (i.e. row is not same as column) then simply transpose */
+                        if(r!=c)
+                        {
+                            B[c][r] = A[r][c];
+                        }
+                        /* if it is on a diagonal then store it in a variable for later use */
+                        else
+                        {
+                            temp = A[r][c];
+                            temp_col = c;
+                        }
                     }
-                    /* else tranpose to B */
-                    else
+                    /* now we deal with diagonals, if it is on a diagonal in a block and on a diagonal block then transpose it */
+                    if(rBlock==cBlock)
                     {
-                        B[l][k] = A[k][l];
+                        B[temp_col][temp_col] = temp;
                     }
                 }
-                /* if a diagonal is found then add it to B here */
-                B[temp_col][k] = temp;
+            }
+        }
+    }
+    /* do the exact same thing for 64, except block size of 4... 
+     * this function sometimes gives us a 8/8 grade, and other times a 2.3/8
+     * not completely sure if this is the correct implementation
+     */
+    else if(N==64)
+    {
+        for(int rBlock = 0; rBlock<N; rBlock+=4)
+        {
+            for(int cBlock = 0; cBlock<M; cBlock+=4)
+            {
+                for(int r = rBlock; r<rBlock+4; r++)
+                {
+                    for(int c = cBlock; c<cBlock+4; c++)
+                    {
+                        if(r!=c)
+                        {
+                            B[c][r] = A[r][c];
+                        }
+                        else
+                        {
+                            temp = A[r][c];
+                            temp_col = c;
+                        }
+                    }
+                    if(rBlock==cBlock)
+                    {
+                        B[temp_col][temp_col] = temp;
+                    }
+                }
+            }
+        }
+    }
+    else /* now in the case of an uneven matrix (61x67) a block size of 16 is most efficient*/
+    {
+        for(int rBlock = 0; rBlock<N; rBlock+=16)
+        {
+            for(int cBlock = 0; cBlock<M; cBlock+=16)
+            {
+                for(int r = rBlock; r<rBlock+16 && r<N; r++) // r<N simply make sure we do not go off edge of matrix
+                {
+                    for(int c = cBlock; c<cBlock+16 && c<M; c++) // r<M
+                    {
+                        if(r!=c)
+                        {
+                            B[c][r] = A[r][c];
+                        }
+                        else
+                        {
+                            temp = A[r][c];
+                            temp_col = c;
+                        }
+                    }
+                    if(rBlock==cBlock)
+                    {
+                        B[temp_col][temp_col] = temp;
+                    }
+                }
             }
         }
     }
@@ -124,4 +186,5 @@ int is_transpose(int M, int N, int A[N][M], int B[M][N])
     }
     return 1;
 }
+
 
